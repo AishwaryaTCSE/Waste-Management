@@ -1,76 +1,40 @@
- var jwt = require('jsonwebtoken');
+import jwt from "jsonwebtoken";
+import Admin from "../models/Admin.js";
 
+/**
+ * @desc    Middleware to protect admin routes
+ * @usage   Use in routes like: router.get('/dashboard', protectAdmin, controllerFn)
+ */
+export const protectAdmin = async (req, res, next) => {
+  let token;
 
+  try {
+    // Check Authorization header for "Bearer <token>"
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
 
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-  const authMiddleware = (role) => {
-    return (req , res , next) =>{
-             //check the token if token is valid  allow next
-                     let token = req.headers?.authorization?.split(" ")[2];
+      // Ensure token has admin role
+      if (decoded.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden: Not an admin" });
+      }
 
-                       if(token)
-                     {
-                        var decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+      // Find the admin in DB and attach to request
+      const admin = await Admin.findById(decoded.id).select("-password");
+      if (!admin) {
+        return res.status(401).json({ message: "Admin not found" });
+      }
 
-                        if(decoded){
-                            if(role.includes(decoded.role))
-                            {
-                               req.user = decoded.userId;
-                               next();
-                               console.log("pass through auth middleware ")
-                            }else{
-                               res.status(401).json({ msg: "unauthorized ......" });
-                            }
-                        }else{
-                            res.status(401).json({ msg: "try login again" });
-                        }
-                     } else{
-                        res.status(401).json({ msg: "not  through auth middleware" });
-                     }
-            }
+      req.admin = admin;
+      return next();
+    }
 
-
+    // If no token provided
+    return res.status(401).json({ message: "Not authorized, no token" });
+  } catch (error) {
+    console.error("Auth Middleware Error:", error.message);
+    return res.status(401).json({ message: "Not authorized, token invalid" });
   }
-
-
-
-
-
-
-//
-//
-
-
-
-
-
-
-
-//  const authMiddleware =  (req , res , next) =>{
-//             //check the token if token is valid  allow next
-//
-//                     let token = req.headers?.authorization?.split(" ")[2];
-//
-//                     if(token)
-//                     {
-//                        var decoded = jwt.verify(token, 'shhhhh');
-//                        res.status(200).json({ tokenStr:  token});
-//
-//                        console.log(decoded)
-//
-//                        if(decoded){
-//
-//                               req.user = decoded.userId;
-//                               next();
-//                               console.log("pass through auth middleware ")
-//
-//                        }else{
-//                            res.status(401).json({ msg: "try login again" });
-//                        }
-//                     } else{
-//                        res.status(401).json({ msg: "not  through auth middleware" });
-//                     }
-// }
-
-
- module.exports = authMiddleware;
+};

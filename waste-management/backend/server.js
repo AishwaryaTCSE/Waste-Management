@@ -1,39 +1,46 @@
-const express = require("express");
-const {connectDB} = require("./config/db")
-const {userRoutes} = require("./routes/user.routes");
-const app = express();
-require('dotenv').config()
-const cors = require("cors");
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
+import connectDB from "./config/db.js";
+import { initSocket } from "./config/socket.js";
+import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import { errorHandler } from "./middleware/errorMiddleware.js";
+import logger from "./utils/logger.js";
 
 
-app.use(express.json());
-app.use(cors());
+dotenv.config();
 
-const PORT = process.env.PORT;
+
+// Connect DB
 connectDB();
 
 
-app.use("/userRoutes" , userRoutes);
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(logger);
 
 
-app.get("/getAll" , (req,res) => {
-   res.status(200).json({msg : "get signup data"});
-})
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 
-
-app.use((req,res) => {
-   res.status(404).json({msg : "404 not found"});
-})
+// Error handler
+app.use(errorHandler);
 
 
+const server = http.createServer(app);
+const io = new Server(server, {
+cors: { origin: "*" },
+});
 
-app.get('/login' , (req,res) => {
-    res.status(200).json({msg : "please login again github"});
-})
+
+initSocket(io);
 
 
-
-app.listen(8080 , () => {
- console.log("server is running on localhost 8080");
-})
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
